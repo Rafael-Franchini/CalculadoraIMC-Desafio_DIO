@@ -1,121 +1,246 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:imccalc/models/imc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(MaterialApp(debugShowCheckedModeBanner: false, home: MyApp()));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  List<IMC> historico = [];
+
+  final TextEditingController pesoController = TextEditingController();
+  final TextEditingController alturaController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarDados();
   }
-}
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+  Future<void> _carregarDados() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String>? dadosSalvos = prefs.getStringList('historico_imc');
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
+    if (dadosSalvos != null) {
+      setState(() {
+        historico = dadosSalvos
+            .map((item) => IMC.fromJson(jsonDecode(item)))
+            .toList();
+      });
+    }
+  }
 
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  Future<void> _salvarNoBanco() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> listaParaSalvar = historico
+        .map((item) => jsonEncode(item.toJson()))
+        .toList();
+    await prefs.setStringList('historico_imc', listaParaSalvar);
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    double width = MediaQuery.sizeOf(context).width;
+    double height = MediaQuery.sizeOf(context).height;
+
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: Text("Calculadora IMC"),
+        centerTitle: true,
+        titleTextStyle: TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+        backgroundColor: Colors.green,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.delete_sweep, color: Colors.white),
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.remove('historico_imc');
+              setState(() => historico.clear());
+            },
+          ),
+        ],
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+      backgroundColor: Color(0xff252525),
+      body: SingleChildScrollView(
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
           children: [
-            const Text('You have pushed the button this many times:'),
+            SizedBox(height: 20),
+            _buildInputContainer(width),
+            SizedBox(height: 20),
             Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+              "Histórico:",
+              style: TextStyle(color: Colors.white, fontSize: 20),
             ),
+            SizedBox(height: 20),
+            _buildListaHistorico(height),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+    );
+  }
+
+  Widget _buildInputContainer(double width) {
+    return Center(
+      child: Container(
+        width: width * 0.8,
+        padding: EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                children: [
+                  _customTextField(
+                    alturaController,
+                    "Altura (ex: 1.80)",
+                    Icons.height,
+                  ),
+                  SizedBox(height: 10),
+                  _customTextField(
+                    pesoController,
+                    "Peso (ex: 80.0)",
+                    Icons.fitness_center,
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: 10),
+            _buildBotaoCalcular(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _customTextField(
+    TextEditingController controller,
+    String hint,
+    IconData icon,
+  ) {
+    return SizedBox(
+      height: 50,
+      child: TextField(
+        controller: controller,
+        keyboardType: TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(
+          hintText: hint,
+          prefixIcon: Icon(icon),
+          border: OutlineInputBorder(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBotaoCalcular() {
+    return SizedBox(
+      height: 110,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        onPressed: () {
+          String pesoText = pesoController.text.replaceAll(',', '.');
+          String alturaText = alturaController.text.replaceAll(',', '.');
+
+          double? peso = double.tryParse(pesoText);
+          double? altura = double.tryParse(alturaText);
+
+          if (peso != null && altura != null && altura > 0) {
+            double valor = peso / (altura * altura);
+            String tipo = "";
+
+            if (valor < 18.5)
+              tipo = "Magreza";
+            else if (valor < 25)
+              tipo = "Saudável";
+            else if (valor < 30)
+              tipo = "Sobrepeso";
+            else
+              tipo = "Obesidade";
+
+            setState(() {
+              historico.insert(
+                0,
+                IMC(
+                  peso: peso,
+                  altura: altura,
+                  imc: valor,
+                  tipo: tipo,
+                  data: DateTime.now(),
+                ),
+              );
+            });
+
+            _salvarNoBanco();
+            pesoController.clear();
+            alturaController.clear();
+            FocusScope.of(context).unfocus();
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Preencha peso e altura corretamente!")),
+            );
+          }
+        },
+        child: Text("Calcular", style: TextStyle(color: Colors.white)),
+      ),
+    );
+  }
+
+  Widget _buildListaHistorico(double height) {
+    if (historico.isEmpty) {
+      return Text("Nenhum registro.", style: TextStyle(color: Colors.grey));
+    }
+    return SizedBox(
+      height: height * 0.5,
+      child: ListView.builder(
+        itemCount: historico.length,
+        itemBuilder: (context, index) {
+          final item = historico[index];
+
+          // Implementação para apagar item específico (Swipe)
+          return Dismissible(
+            key: Key(item.data.millisecondsSinceEpoch.toString()),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              color: Colors.red,
+              alignment: Alignment.centerRight,
+              padding: EdgeInsets.only(right: 20),
+              child: Icon(Icons.delete, color: Colors.white),
+            ),
+            onDismissed: (direction) {
+              setState(() {
+                historico.removeAt(index);
+              });
+              _salvarNoBanco();
+            },
+            child: ListTile(
+              textColor: Colors.white,
+              title: Text("IMC: ${item.imc.toStringAsFixed(2)} - ${item.tipo}"),
+              subtitle: Text("Peso: ${item.peso}kg | Altura: ${item.altura}m"),
+              trailing: Text("${item.data.day}/${item.data.month}"),
+            ),
+          );
+        },
       ),
     );
   }
