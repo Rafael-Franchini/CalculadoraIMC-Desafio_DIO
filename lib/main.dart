@@ -168,15 +168,18 @@ class _MyAppState extends State<MyApp> {
           if (peso != null && altura != null && altura > 0) {
             double valor = peso / (altura * altura);
             String tipo = "";
-
             if (valor < 18.5)
               tipo = "Magreza";
             else if (valor < 25)
               tipo = "Saudável";
             else if (valor < 30)
               tipo = "Sobrepeso";
+            else if (valor < 35)
+              tipo = "Obesidade Grau I";
+            else if (valor < 40)
+              tipo = "Obesidade Grau II";
             else
-              tipo = "Obesidade";
+              tipo = "Obesidade Grau III";
 
             setState(() {
               historico.insert(
